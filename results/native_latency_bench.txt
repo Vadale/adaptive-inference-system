@@ -1,0 +1,5 @@
+baseline init:        61.1 ± 5.6s
+hard_skip 33%:        76.1 ± 6.0s   saving=-24.4%
+hard_skip 17%:        70.4 ± 8.5s   saving=-15.1%
+soft_skip 33% α=0.7:  64.7 ± 12.5s   saving=-5.8%
+baseline finale:      73.0 ± 0.6s   delta=-19.4%

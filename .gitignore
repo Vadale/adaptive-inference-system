@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code session state
+.claude/
+
+# Large generated artifacts — regenerable via experiments/exp_013-015
+# (5000-prompt corpus = 28MB, FAISS map = 60MB)
+corpus/activations_*_n5000_*.npz
+corpus/activations_*_n200_*.npz
+mappa/topology/
+mappa/topology_e2b/
+mappa/topology_llama32_3b/
+
+# Logs / temp
+*.log
+/tmp/
+results/*.png
+# Keep small benchmark NPZ + the markdown summaries
+!results/.gitkeep
+
+# Diary entries are personal/operational, not for public repo
+diary/
+
+# Old CLAUDE.md memory references — not for public consumption
+# (the public-facing docs/ are kept)

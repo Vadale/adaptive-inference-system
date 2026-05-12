@@ -1,0 +1,6 @@
+prompt='The capital of France is' subject=' France' target=' Paris'
+σ_emb=0.1437 noise_σ=0.4311 seed=42
+p_clean=0.0290 p_corrupted=0.0019 drop=0.0271
+top1_clean=' the' top1_corrupted=' a'
+max_recovery=2.038 threshold=0.3 verdict=PASS
+top3_hotspots=[(3, 3, ' France', 2.0383901596069336), (10, 4, ' is', 1.7381668090820312), (2, 3, ' France', 1.1505041122436523)]

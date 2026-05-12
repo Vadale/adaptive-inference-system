@@ -1,0 +1,17 @@
+# Core: Llama 3.2 3B inference + benchmarks
+torch==2.11.0
+transformers==5.8.0
+faiss-cpu
+numpy
+scipy
+scikit-learn
+umap-learn
+matplotlib
+datasets
+huggingface_hub
+
+# Optional: only needed for the Gemma 4 / nnsight research path
+# (cervellone/layer_skipper.py and experiments exp_000-exp_011)
+# nnsight==0.7.0
+# nnterp==1.3.0
+# torchvision

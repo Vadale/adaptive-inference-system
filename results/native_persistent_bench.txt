@@ -1,0 +1,3 @@
+baseline init: 0.1 ± 0.0s
+hard_skip 33% persistent: 0.1 ± 0.0s  saving=+22.5%
+baseline finale: 0.1 ± 0.0s  drift=+0.4%
