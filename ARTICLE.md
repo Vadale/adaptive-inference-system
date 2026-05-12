@@ -357,7 +357,7 @@ I'd genuinely like to hear it.
 
 ---
 
-**Repo:** https://github.com/vadale93/adaptive-inference-system
+**Repo:** https://github.com/Vadale/adaptive-inference-system
 **Related work worth reading:** [LayerSkip](https://arxiv.org/abs/2404.16710),
 [Mixture of Depths](https://arxiv.org/abs/2404.02258),
 [vLLM](https://github.com/vllm-project/vllm),

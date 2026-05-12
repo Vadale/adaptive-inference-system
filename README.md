@@ -90,7 +90,7 @@ adaptive-inference-system/
 ### Install
 
 ```bash
-git clone https://github.com/vadale93/adaptive-inference-system.git
+git clone https://github.com/Vadale/adaptive-inference-system.git
 cd adaptive-inference-system
 
 conda create -n ais python=3.12 -y
@@ -195,7 +195,7 @@ their respective Meta and Google licenses; check those before deploying.
             Category-Routed Layer Skipping for Small LLMs on Apple Silicon},
   author = {Vadala, Alessandro},
   year   = {2026},
-  url    = {https://github.com/vadale93/adaptive-inference-system},
+  url    = {https://github.com/Vadale/adaptive-inference-system},
   note   = {Research prototype. Outperformed by LayerSkip and Mixture of Depths.},
 }
 ```
