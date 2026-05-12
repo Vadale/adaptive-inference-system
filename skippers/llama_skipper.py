@@ -1,16 +1,21 @@
-"""LlamaSkipper — NativeLayerSkipper for Llama 3.x architecture.
+"""LlamaSkipper — layer skipper for Llama 3.x.
 
-Llama 3.x has standard transformer architecture (no shared KV like Gemma 4).
-NativeLayerSkipper via ModuleList swap works out of the box → REAL compute saving.
+Llama 3.x has a standard transformer architecture (no shared-KV pattern like
+Gemma 4), so a `nn.ModuleList` swap works out of the box → real compute
+saving when a layer is hard-skipped.
 
-API mirrors NativeLayerSkipper:
-  - `forward(prompt, hard_skip, soft_skip)` — one-shot with auto restore
-  - `apply_skip(hard, soft)` + `forward_no_swap(prompt)` + `restore()` — persistent
-  - `embed(prompt, layer)` — uses an intermediate layer output as encoder
-                              (cervelletto reuse: same model as encoder + decoder)
+API:
+  - `forward(prompt, hard_skip, soft_skip)` — one-shot, auto restore.
+  - `apply_skip(hard, soft)` + `forward_no_swap(prompt)` + `restore()` —
+    persistent skip mode (apply once, then reuse for many forwards).
+  - `embed(prompt, layer)` — runs the model with output_hidden_states=True
+    and returns the hidden state of an intermediate layer at last-token
+    position. Used as a router embedding (the same model serves as router +
+    decoder, which is convenient but expensive — see ARTICLE.md §6).
 
-Garanzia FALLBACK: con hard_skip=None e soft_skip=None, forward = HF baseline.
-Compute saving lineare ai layer skippati (hard).
+Fallback guarantee: with hard_skip=None and soft_skip=None, `forward()` is
+bit-identical to the HuggingFace baseline. Compute saving on hard skip
+scales linearly with the number of layers skipped.
 """
 from __future__ import annotations
 
@@ -130,7 +135,7 @@ class LlamaSkipper:
     def embed(self, prompt: str, layer_idx: int = None,
               chat_template: bool = True) -> torch.Tensor:
         """Extract hidden state of an intermediate layer at last-token position.
-        Used as cervelletto encoder. Default: layer = n_layers // 3 (early-mid).
+        Used as router encoder. Default: layer = n_layers // 3 (early-mid).
 
         NOTE: this uses output_hidden_states=True on the full model — costo
         equivalente a un forward intero. Per encoder dedicato più veloce,

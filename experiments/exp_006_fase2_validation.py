@@ -42,8 +42,8 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
-from pipeline.mappa import TopologicalMap
+from skippers.layer_skipper import AdaptiveLayerSkipper
+from pipeline.topological_map import TopologicalMap
 
 DATASET_ID = "databricks/databricks-dolly-15k"
 RESULTS_DIR = ROOT / "results"
@@ -105,8 +105,8 @@ def main() -> int:
 
     print(f"Loading TopologicalMap from {MAP_DIR}...", flush=True)
     tmap = TopologicalMap.load(MAP_DIR)
-    print(f"  entries={len(tmap)}  n_cervellone_layers={tmap.n_cervellone_layers}", flush=True)
-    groups = _group_starts(tmap.n_cervellone_layers, args.n_groups)
+    print(f"  entries={len(tmap)}  n_decoder_layers={tmap.n_decoder_layers}", flush=True)
+    groups = _group_starts(tmap.n_decoder_layers, args.n_groups)
     print(f"  groups={groups}  k_skip={args.k_skip} → {args.k_skip*7}/42 layer skippati "
           f"= {args.k_skip*7/42*100:.1f}%", flush=True)
 
@@ -152,7 +152,7 @@ def main() -> int:
         mm = {"mps": "8GiB", "cpu": "30GiB"}
     skipper = AdaptiveLayerSkipper(model_id=args.model_id, device_map=dm, max_memory=mm)
     n_layers = skipper.n_layers
-    assert n_layers == tmap.n_cervellone_layers
+    assert n_layers == tmap.n_decoder_layers
 
     total_forward = sum(len(v) * 2 for v in held_out.values())
     print(f"\nValidation: {total_forward} forward (~{total_forward * 70 / 60:.0f} min)",

@@ -6,7 +6,7 @@ Tre agent custom in `.claude/agents/`. Vengono caricati nativamente da Claude Co
 
 | Agent | Trigger | Cosa produce |
 |---|---|---|
-| **ais-reviewer** | Dopo aver scritto codice nuovo in `experiments/`, `cervelletto/`, `cervellone/`, `mappa/`, `pipeline/` | Report di review con verdetto (PASS / WITH FIXES / BLOCK), critical/important/minor issues con `file:line`, strengths, sanity check consigliati |
+| **ais-reviewer** | Dopo aver scritto codice nuovo in `experiments/`, `router/`, `decoder/`, `mappa/`, `pipeline/` | Report di review con verdetto (PASS / WITH FIXES / BLOCK), critical/important/minor issues con `file:line`, strengths, sanity check consigliati |
 | **ais-tester** | Dopo nuovo `experiments/exp_NNN_*.py`, prima di un milestone, per verificare `verify_fallback_identity` | Numeri concreti + verdetto PASS/FAIL + interpretazione + prossimo passo |
 | **ais-docwriter** | A fine sessione o dopo un milestone | Diary `YYYY-MM-DD_*.md` + aggiornamenti mirati a `docs/` (non a `CLAUDE.md` salvo eccezioni) |
 

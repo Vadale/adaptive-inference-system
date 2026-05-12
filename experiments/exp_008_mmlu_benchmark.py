@@ -2,13 +2,13 @@
 
 Misura il valore aggiunto di AIS su un benchmark standardizzato (MMLU
 multiple-choice). Setup:
-  1) Pre-embed N=20 prompt MMLU con il cervelletto (Gemma 4 E2B).
-  2) Unload cervelletto (E2B+E4B non coabitano su 16 GB unified memory).
+  1) Pre-embed N=20 prompt MMLU con il router (Gemma 4 E2B).
+  2) Unload router (E2B+E4B non coabitano su 16 GB unified memory).
   3) Per ogni prompt:
-     a) baseline forward (cervellone E4B, tutti i 42 layer)
+     a) baseline forward (decoder E4B, tutti i 42 layer)
      b) AIS HIGH forward: confidence_threshold abbassato a 0 → forza HIGH
         path. Skip secondo la `layer_importance` della mappa per la categoria
-        più simile (nearest neighbor cervelletto embedding). α=0.7 (sweet
+        più simile (nearest neighbor router embedding). α=0.7 (sweet
         spot da exp_006).
   4) Per ogni prompt:
      - estraggo top-1 next token e cerco quale tra ' A', ' B', ' C', ' D'
@@ -44,7 +44,7 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline.mappa import TopologicalMap
+from pipeline.topological_map import TopologicalMap
 
 RESULTS_DIR = ROOT / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -52,8 +52,8 @@ RESULTS_DIR.mkdir(exist_ok=True)
 MMLU_REPO = "cais/mmlu"
 MMLU_SUBSET = "all"
 
-CERVELLETTO_PIVOT = 9
-CERVELLETTO_DEVICE_MAP = {
+ROUTER_PIVOT = 9
+ROUTER_DEVICE_MAP = {
     "model.vision_tower": "cpu", "model.audio_tower": "cpu",
     "model.embed_vision": "cpu", "model.embed_audio": "cpu",
     "model.language_model": "mps", "lm_head": "mps",
@@ -86,10 +86,10 @@ def main() -> int:
     ap.add_argument("--skip-thr", type=float, default=0.10,
                     help="layer con importance < threshold sono skippati")
     ap.add_argument("--seed", type=int, default=2026)
-    ap.add_argument("--cervellone-model-id", type=str, default="google/gemma-4-E4B-it")
+    ap.add_argument("--decoder-model-id", type=str, default="google/gemma-4-E4B-it")
     ap.add_argument("--map-dir", type=str, default=None)
     args = ap.parse_args()
-    is_e2b = "E2B" in args.cervellone_model_id
+    is_e2b = "E2B" in args.decoder_model_id
     MAP_DIR = Path(args.map_dir) if args.map_dir else (
         ROOT / "mappa" / ("topology_e2b" if is_e2b else "topology")
     )
@@ -105,10 +105,10 @@ def main() -> int:
           flush=True)
 
     # ---------- STEP A: embed con E2B ----------
-    print(f"\n[A] Loading cervelletto E2B per embedding...", flush=True)
+    print(f"\n[A] Loading router E2B per embedding...", flush=True)
     from nnsight import VisionLanguageModel
     enc = VisionLanguageModel(
-        "google/gemma-4-E2B-it", dtype=torch.bfloat16, device_map=CERVELLETTO_DEVICE_MAP
+        "google/gemma-4-E2B-it", dtype=torch.bfloat16, device_map=ROUTER_DEVICE_MAP
     )
     proc = enc.processor
 
@@ -125,7 +125,7 @@ def main() -> int:
         holder = [None]
         with torch.no_grad():
             with enc.trace(text):
-                holder[0] = enc.model.language_model.layers[CERVELLETTO_PIVOT].output.save()
+                holder[0] = enc.model.language_model.layers[ROUTER_PIVOT].output.save()
         v = holder[0][0] if isinstance(holder[0], tuple) else holder[0]
         embeddings[i] = v[0, -1, :].float().cpu().numpy()
         if (i + 1) % 5 == 0:
@@ -162,9 +162,9 @@ def main() -> int:
     print(f"  Sim media: {np.mean(sims):.3f}  min: {np.min(sims):.3f}  "
           f"max: {np.max(sims):.3f}", flush=True)
 
-    # ---------- STEP C: cervellone forward ----------
-    print(f"\n[C] Loading cervellone {args.cervellone_model_id}...", flush=True)
-    from cervellone.layer_skipper import AdaptiveLayerSkipper
+    # ---------- STEP C: decoder forward ----------
+    print(f"\n[C] Loading decoder {args.decoder_model_id}...", flush=True)
+    from skippers.layer_skipper import AdaptiveLayerSkipper
     if is_e2b:
         dm = {
             "model.vision_tower": "cpu", "model.audio_tower": "cpu",
@@ -175,7 +175,7 @@ def main() -> int:
     else:
         dm = "auto"
         mm = {"mps": "8GiB", "cpu": "30GiB"}
-    skipper = AdaptiveLayerSkipper(model_id=args.cervellone_model_id,
+    skipper = AdaptiveLayerSkipper(model_id=args.decoder_model_id,
                                     device_map=dm, max_memory=mm)
     n_layers = skipper.n_layers
 

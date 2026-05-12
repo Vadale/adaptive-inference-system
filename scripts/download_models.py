@@ -1,8 +1,8 @@
 """Scarica i modelli HF necessari per Fase 1+ del progetto AIS.
 
 Usage:
-  python scripts/download_models.py E2B           # solo cervelletto (~10 GB)
-  python scripts/download_models.py E4B           # solo cervellone  (~16 GB)
+  python scripts/download_models.py E2B           # solo router (~10 GB)
+  python scripts/download_models.py E4B           # solo decoder  (~16 GB)
   python scripts/download_models.py E2B E4B       # entrambi
 
 Note operative:

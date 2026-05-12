@@ -38,19 +38,19 @@ prompt
   │
   ▼
 ┌─────────────────────────────┐
-│   CERVELLETTO (router)      │   first 1/3 of the model → embedding
+│   ROUTER                    │   first 1/3 of the model → embedding
 │   Llama 3.2 3B, layers 0-9  │
 └─────────────┬───────────────┘
               │ embedding (hidden_size = 3072)
               ▼
 ┌─────────────────────────────┐
-│   MAPPA TOPOLOGICA          │   FAISS k-NN over 5000 corpus embeddings
+│   TOPOLOGICAL MAP           │   FAISS k-NN over 5000 corpus embeddings
 │   IndexFlatIP (cosine)      │   → category + layer_importance vector
 └─────────────┬───────────────┘
               │ category, [importance_L0, ..., importance_L27]
               ▼
 ┌─────────────────────────────┐
-│   CERVELLONE (decoder)      │   full forward, but skip layers
+│   DECODER                   │   full forward, but skip layers
 │   Llama 3.2 3B, layers 0-27 │   with importance < threshold
 └─────────────────────────────┘
               │
@@ -247,12 +247,13 @@ parametric, end-to-end-trained routers (mixture-of-depths style) that can adapt
 per-token, not per-prompt. A 5000-entry FAISS k-NN can't compete with a 2-layer
 MLP trained jointly with the model.
 
-The cervelletto also has a hidden cost I underestimated: **to route a prompt,
-you have to do a partial forward through the model first.** When the
-cervelletto is the same size as the cervellone (as in my Llama setup), that's
-expensive enough that the skip needs to save more than the routing cost.
-This works at B=4 because the routing happens once per batch and the savings
-amortize. It does *not* work for single-user latency.
+The router also has a hidden cost I underestimated: **to route a prompt,
+you have to do a partial forward through the model first.** When the router
+is the same size as the decoder (as in my Llama setup, where both are
+Llama 3.2 3B), that's expensive enough that the skip needs to save more
+than the routing cost. This works at B=4 because the routing happens once
+per batch and the savings amortize. It does *not* work for single-user
+latency.
 
 ## 7. Things I learned that might save you time
 
@@ -306,7 +307,7 @@ small LLM, Apple Silicon"):
    shared KV unless you have a specific reason to use Gemma 4.
 
 3. **Don't use the same model as router and decoder.** The break-even on
-   routing cost is brutal when the cervelletto is the cervellone. Either
+   routing cost is brutal when the router is the decoder. Either
    route with a much smaller model (Llama 3.2 1B → Llama 3.2 3B/8B), or skip
    the router entirely and use a fixed skip set with batching.
 
@@ -328,15 +329,15 @@ Everything to reproduce these numbers, plus the full failure trail:
 - **`experiments/exp_000_..._011_*.py`** — the Gemma 4 path. Mostly negative
   results, but the methodology (ROME tracing, group ablation, soft-skip
   validation, multi-benchmark suite) is reusable.
-- **`cervellone/llama_skipper.py`** — the minimal real-compute-saving skipper.
+- **`skippers/llama_skipper.py`** — the minimal real-compute-saving skipper.
   Read this first.
-- **`cervellone/native_skip.py`** — the Gemma 4 version. Read this second to
+- **`skippers/native_skip.py`** — the Gemma 4 version. Read this second to
   see how shared-KV breaks the naive approach.
-- **`cervellone/layer_skipper.py`** — the nnsight-based research version with
+- **`skippers/layer_skipper.py`** — the nnsight-based research version with
   α-interpolation. Read this if you want to do boundary intervention
   experiments without a fine-tune.
-- **`pipeline/mappa.py`** — `TopologicalMap` (FAISS IndexFlatIP +
-  per-entry `layer_importance` array). 50 lines, no magic.
+- **`pipeline/topological_map.py`** — `TopologicalMap` (FAISS IndexFlatIP
+  + per-entry `layer_importance` array). 50 lines, no magic.
 - **`docs/pitfalls.md`** — the 16 numbered gotchas.
 - **`docs/phases.md`** — the project roadmap, with go/no-go criteria and what
   passed/failed at each gate.

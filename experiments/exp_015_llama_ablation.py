@@ -32,8 +32,8 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.llama_skipper import LlamaSkipper
-from pipeline.mappa import TopologicalMap
+from skippers.llama_skipper import LlamaSkipper
+from pipeline.topological_map import TopologicalMap
 
 DATASET_ID = "databricks/databricks-dolly-15k"
 RESULTS_DIR = ROOT / "results"

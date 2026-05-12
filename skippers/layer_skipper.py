@@ -1,28 +1,31 @@
-"""AdaptiveLayerSkipper — wrapper su Gemma 4 E4B (cervellone).
+"""AdaptiveLayerSkipper — research wrapper around Gemma 4 E4B (the decoder).
 
-Garanzia fondamentale (`docs/architecture.md`): in modalità FALLBACK l'output è
-**bit-identico** al baseline forward del modello.
+Core guarantee (see `docs/architecture.md`): in FALLBACK mode the output is
+**bit-identical** to the baseline forward pass of the underlying model.
 
 API:
-  - `forward(prompt, active_layers=None, alpha=0.0)` → logits del last token
-  - `active_layers=None` o `set(range(n_layers))` → FALLBACK puro: nessun
-    intervento, percorso PyTorch identico al baseline.
-  - `active_layers != all` → i layer NON in active_layers vengono "skippati"
-    con interpolation parametrizzata da `alpha`. Per ogni gruppo contiguo
-    `[gs, ge)`:
-        layers[ge-1].output = α·orig_output + (1-α)·layers[gs].input
-      - α=0.0 (default): HARD SKIP (output = input). Equivalente al pattern
-        precedente di Fase 2 ablation.
-      - α=1.0: NO SKIP (output = output normale). NoOp.
-      - α∈(0,1): SOFT SKIP. La rappresentazione del gruppo è interpolata fra
-        l'output del transformer e l'input. Su modelli SOTA come Gemma 4
-        (P14), α≈0.3-0.7 può preservare la qualità del top-k meglio di α=0.
+  - `forward(prompt, active_layers=None, alpha=0.0)` → last-token logits.
+  - `active_layers=None` or `set(range(n_layers))` → pure FALLBACK: no
+    intervention, PyTorch path identical to the baseline.
+  - `active_layers != all` → layers NOT in `active_layers` are "skipped"
+    with interpolation parameterized by `alpha`. For each contiguous skip
+    group `[gs, ge)`:
+        layers[ge-1].output = α · orig_output + (1-α) · layers[gs].input
+      - α=0.0 (default): HARD SKIP (output = input). Equivalent to the
+        ablation pattern used during Phase 2.
+      - α=1.0: NO SKIP (output = original). No-op.
+      - α∈(0,1): SOFT SKIP. The group's representation is interpolated
+        between the transformer output and its input. On modern instruction-
+        tuned models like Gemma 4 (P14), α≈0.3-0.7 preserves top-k quality
+        much better than α=0.
 
-NB compute: lo skip via nnsight intervention NON risparmia compute (il modulo
-viene comunque eseguito e il suo output sovrascritto). Per saving reale in
-deploy, servirà un wrapper PyTorch nativo che by-passa l'esecuzione.
+Compute note: skipping via nnsight intervention does NOT save compute (the
+module still runs; its output is just overwritten). For real saving in
+deployment, use `NativeLayerSkipper` or `LlamaSkipper` (native PyTorch
+ModuleList swap that bypasses execution).
 
-Vincoli: P1-P14. VLM + device_map auto + max_memory (vedi P12).
+Constraints: P1-P14 (see docs/pitfalls.md). VLM + device_map="auto" +
+max_memory (see P12).
 """
 from __future__ import annotations
 
@@ -79,7 +82,7 @@ class ForwardResult:
 
 
 class AdaptiveLayerSkipper:
-    """Wrap il cervellone E4B. Espone `forward(prompt, active_layers)`."""
+    """Wraps the decoder (Gemma 4 E4B). Exposes `forward(prompt, active_layers)`."""
 
     def __init__(
         self,

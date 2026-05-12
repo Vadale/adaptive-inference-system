@@ -8,7 +8,7 @@ Validation real compute saving via NativeLayerSkipper (LlamaSkipper, ModuleList 
 - Dataset: dolly-15k (5000 stratified), MMLU all/test (N=100)
 - No shared-KV pattern → hard skip is real compute saving
 
-## Phase 1 — Topological Map (cervelletto + FAISS)
+## Phase 1 — Topological Map (router + FAISS)
 
 | Metric | Llama 3.2 3B | Gemma 4 E2B |
 |---|---|---|

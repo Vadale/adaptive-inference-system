@@ -1,4 +1,4 @@
-"""exp_017 — MMLU benchmark on Llama 3.2 3B AIS (cervelletto = cervellone).
+"""exp_017 — MMLU benchmark on Llama 3.2 3B AIS (router = decoder).
 
 Mirror exp_008 but Llama-only: same model serves as encoder (embed at L9) AND
 decoder (full forward with optional hard/soft skip). No model unload needed.
@@ -28,8 +28,8 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.llama_skipper import LlamaSkipper
-from pipeline.mappa import TopologicalMap
+from skippers.llama_skipper import LlamaSkipper
+from pipeline.topological_map import TopologicalMap
 
 RESULTS_DIR = ROOT / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -75,7 +75,7 @@ def main() -> int:
     subjects = [ds[int(i)]["subject"] for i in idx]
     print(f"  N={len(prompts)} subjects_distinct={len(set(subjects))}", flush=True)
 
-    print("\nLoading LlamaSkipper (cervelletto + cervellone)...", flush=True)
+    print("\nLoading LlamaSkipper (router + decoder)...", flush=True)
     skipper = LlamaSkipper()
     n_layers = skipper.n_layers
     print(f"  n_layers={n_layers}  hidden={skipper.hidden_size}", flush=True)
@@ -92,7 +92,7 @@ def main() -> int:
 
     print(f"\n[B] Mappa lookup + skip plans...", flush=True)
     tmap = TopologicalMap.load(map_dir)
-    assert tmap.n_cervellone_layers == n_layers
+    assert tmap.n_decoder_layers == n_layers
     skip_plans: list[set[int]] = []
     matched_cats: list[str] = []
     sims: list[float] = []

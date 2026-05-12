@@ -9,7 +9,7 @@ Quattro fasi, ognuna con un milestone misurabile. Non si procede senza che passi
 | 0 | 2 sett | Hook system funzionante, ROME replicato | Causal tracing identifica un layer dominante (vedi nota) — **PASS 2026-05-11** |
 | 1 | 4 sett | 5000 attivazioni Gemma 4, UMAP visibile | k-NN(k=10) homog > 0.40 AND (silhouette > 0.02 OR homog > 0.48) — **PASS 2026-05-11** (homog 0.545, sil 0.020) |
 | 2 | 6 sett | Mappa topologica FAISS + AdaptiveLayerSkipper + fallback | **PASS STRICT 2026-05-12**: 33% layer skippati + 100% top-1 agreement su 4/8 categorie (brainstorming, closed_qa, creative_writing, general_qa) con soft skip α=0.7 (P14: hard skip insufficient, interpolation risolve). FALLBACK bit-identico garantito by design. |
-| 3 | 6 sett | Cervelletto fine-tuned, pipeline integrata | Qualità AIS ≥95% baseline AND latenza AIS ≤110% baseline su MMLU — **mini-benchmark N=20 PASS 2026-05-12** (acc 40% = 40%, top-1 agree 80%, 33% skip, latency -6.3%); validazione N=100+ pending |
+| 3 | 6 sett | Router fine-tuned, pipeline integrata | Qualità AIS ≥95% baseline AND latenza AIS ≤110% baseline su MMLU — **mini-benchmark N=20 PASS 2026-05-12** (acc 40% = 40%, top-1 agree 80%, 33% skip, latency -6.3%); validazione N=100+ pending |
 
 ## Note correttive
 
@@ -40,7 +40,7 @@ Risultato:
 ### Fase 2 — risultato ablation (eterogeneità tra categorie)
 
 Group ablation (6 gruppi di 7 layer × 8 categorie × 3 prompt = 168 forward) ha rivelato pattern coerenti:
-- **g3 (L21-27)** è il gruppo dominante in 4/8 categorie (closed_qa, classification, brainstorming, creative_writing). Su `classification` la dominanza è 3× il successivo (KL=33.3 vs ~10). Confermazione che la "regione fattuale" del cervellone è ai layer medi.
+- **g3 (L21-27)** è il gruppo dominante in 4/8 categorie (closed_qa, classification, brainstorming, creative_writing). Su `classification` la dominanza è 3× il successivo (KL=33.3 vs ~10). Confermazione che la "regione fattuale" del decoder è ai layer medi.
 - **g5 (L35-41)** è il gruppo MENO importante in 4/8 categorie (closed_qa, info_extraction, general_qa, brainstorming). I layer tardi sono spesso ridondanti.
 - **g0 (L00-06)** dominante per `information_extraction` e `creative_writing` — codifica forma/lessicale precoce.
 - **summarization** è l'unica categoria dove i layer tardi (g4+g5) sono critici quanto i medi → task generativo "lungo".
@@ -89,7 +89,7 @@ output_fallback = adaptive_skipper.forward(text, confidence_threshold=999)  # fo
 assert torch.allclose(output_baseline.logits, output_fallback.logits, atol=1e-4)
 ```
 
-Sul cervellone vero (Gemma 4 E4B) **riverificare il determinismo MPS bf16** prima di affidarsi a `atol=1e-4`. Su GPT-2 Small è 0.0 esatto (smoke 2026-05-11), su modelli più grandi va misurato.
+Sul decoder vero (Gemma 4 E4B) **riverificare il determinismo MPS bf16** prima di affidarsi a `atol=1e-4`. Su GPT-2 Small è 0.0 esatto (smoke 2026-05-11), su modelli più grandi va misurato.
 
 Se FAIL anche solo su 1 testo su 20 → **BLOCK assoluto**, diagnosticare prima di procedere. La garanzia "AIS non può essere peggio del baseline" si regge su questo test.
 
@@ -108,7 +108,7 @@ Metrica qualità: **accuracy contro gold answer** su MMLU/TruthfulQA, non ROUGE.
 | Segnale | Diagnosi |
 |---|---|
 | FALLBACK non identico al baseline | Bug critico nel layer skipper. Non procedere. |
-| Confidence sempre > 0.9 su tutto | Cervelletto non discrimina. Problema training. |
+| Confidence sempre > 0.9 su tutto | Router non discrimina. Problema training. |
 | Confidence sempre < 0.5 su tutto | Mappa vuota o corrotta. |
 | Layer skipping rate = 0% anche su HIGH | Threshold troppo alto o mappa sbagliata. |
 | Degrado qualità > 10% su HIGH | Skipping layer troppo importanti. Abbassa skipping. |

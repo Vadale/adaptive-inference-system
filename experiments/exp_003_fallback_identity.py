@@ -29,7 +29,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
+from skippers.layer_skipper import AdaptiveLayerSkipper
 
 # Mix di prompt: brevi/lunghi, factual/creative/code, per stressare il test
 PROMPTS = [

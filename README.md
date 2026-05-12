@@ -14,11 +14,12 @@ didn't, and why I'm publishing the failures alongside the wins.
 
 Three-component inference pipeline for small instruction-tuned LLMs:
 
-1. **Cervelletto** (router) — runs the prompt through the first ~⅓ of the model,
+1. **Router** — runs the prompt through the first ~⅓ of the model and
    extracts a hidden-state embedding.
-2. **Mappa Topologica** (FAISS index, 5000 entries) — k-NN lookup over the embedding
-   returns a category and a per-layer `importance` vector for that category.
-3. **Cervellone** (decoder) — runs a full forward, but hard-skips (or soft-interpolates)
+2. **Topological Map** (FAISS index, 5000 entries) — k-NN lookup over the
+   embedding returns a category and a per-layer `importance` vector for that
+   category.
+3. **Decoder** — runs a full forward, but hard-skips (or soft-interpolates)
    the layers whose importance is below a threshold.
 
 The idea: skip the layers that don't matter for the prompt's category, save compute
@@ -60,21 +61,20 @@ executes the layer, so the saving evaporates. There is no free lunch.
 adaptive-inference-system/
 ├── ARTICLE.md                 # long-form write-up (the interesting part)
 ├── README.md                  # this file
-├── cervellone/
+├── skippers/
 │   ├── llama_skipper.py       # LlamaSkipper — real hard-skip via ModuleList swap
 │   ├── native_skip.py         # NativeLayerSkipper for Gemma 4 (research only)
 │   └── layer_skipper.py       # AdaptiveLayerSkipper via nnsight (research only)
 ├── pipeline/
-│   ├── mappa.py               # TopologicalMap (FAISS IndexFlatIP)
+│   ├── topological_map.py     # TopologicalMap (FAISS IndexFlatIP)
 │   └── pipeline.py            # end-to-end AIS pipeline (Gemma 4 path)
-├── experiments/               # 18 numbered experiments, reproducible
+├── experiments/               # 23 numbered experiments, reproducible
 ├── docs/
 │   ├── pitfalls.md            # 16 documented gotchas — read this if you do similar work
 │   ├── architecture.md        # design notes
 │   └── phases.md              # roadmap and go/no-go criteria
 ├── results/
 │   ├── LLAMA_RESULTS.md       # Llama-specific summary
-│   ├── TABELLA_COMPARATIVA.md # cross-experiment comparison
 │   └── *.npz                  # raw benchmark data
 └── scripts/                   # model download helpers
 ```
@@ -113,7 +113,7 @@ caffeinate -i python -u experiments/exp_012_llama_native_smoke.py
 
 # 2. Build the topological map (~15 min: 5000 forwards for embeddings)
 caffeinate -i python -u experiments/exp_013_llama_corpus.py --n 5000
-python experiments/exp_014_llama_mappa.py
+python experiments/exp_014_llama_map.py
 
 # 3. Per-category layer importance (~30 s)
 caffeinate -i python -u experiments/exp_015_llama_ablation.py
@@ -132,7 +132,7 @@ caffeinate -i python -u experiments/exp_018_llama_batch.py
 ### Minimal inference example
 
 ```python
-from cervellone.llama_skipper import LlamaSkipper
+from skippers.llama_skipper import LlamaSkipper
 
 skipper = LlamaSkipper()  # loads Llama 3.2 3B Instruct, bf16, MPS
 

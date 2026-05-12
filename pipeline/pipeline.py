@@ -1,24 +1,28 @@
-"""AISInferencePipeline — flow end-to-end del progetto AIS.
+"""AISInferencePipeline — end-to-end flow for the Gemma 4 research path.
 
-Componenti (vedi `docs/architecture.md`):
-  1. CERVELLETTO (Gemma 4 E2B): embedda il prompt (L09 last-token con chat
-     template, hidden 1536) → query embedding per la Mappa.
-  2. MAPPA TOPOLOGICA (FAISS, 5000 entries): lookup del top-k più vicini →
-     domain (categoria stimata) + `layer_importance` aggregato.
-  3. POLICY: se confidence (cosine similarity) >= threshold → HIGH (skip
-     layer non critici del cervellone). Altrimenti → FALLBACK (forward completo
-     del cervellone, bit-identico al baseline — garanzia commerciale).
-  4. CERVELLONE (Gemma 4 E4B): forward con `active_layers` derivato.
+Components (see `docs/architecture.md`):
+  1. ROUTER (Gemma 4 E2B): embeds the prompt (L09 last-token with chat
+     template, hidden=1536) → query embedding for the map.
+  2. TOPOLOGICAL MAP (FAISS, 5000 entries): top-k lookup → domain
+     (estimated category) + aggregated `layer_importance`.
+  3. POLICY: if confidence (cosine similarity) >= threshold → HIGH path
+     (skip non-critical decoder layers). Otherwise → FALLBACK (full decoder
+     forward, bit-identical to baseline).
+  4. DECODER (Gemma 4 E4B): forward with `active_layers` derived from
+     the policy.
 
-Default conservativo: confidence_threshold=0.999 → praticamente sempre
-FALLBACK (output = baseline esatto). Quando i fix futuri (interpolation,
-single-layer ablation) miglioreranno il HIGH path, si abbasserà il threshold.
+Conservative default: confidence_threshold=0.999 → almost always FALLBACK
+(output = exact baseline). Lower the threshold when the HIGH path quality
+improves (interpolation, finer-grained ablation).
 
-Vincoli: P1-P14. Modelli caricati separatamente — entrambi entrano in
-memoria su Mac mini 16GB? E2B su MPS (10GB) + E4B su MPS+CPU (16GB) = ~24GB.
-Per ora E2B e E4B caricati on-demand (uno alla volta) — il pipeline tiene
-solo il cervellone in memoria, ricreando il cervelletto per ogni query
-(slow ma realistic per smoke).
+Constraints: P1-P14 (see docs/pitfalls.md). Models loaded separately — both
+in unified memory on a Mac mini 16GB is tight: E2B on MPS (10GB) + E4B on
+MPS+CPU (16GB) ≈ 24GB. Therefore the router (E2B) is loaded on demand for
+the embedding query — slow but realistic for a 16GB box.
+
+NOTE: this is the Gemma 4 research pipeline (uses nnsight via
+AdaptiveLayerSkipper). For the production-shaped Llama 3.2 path, see
+`skippers/llama_skipper.py` and `experiments/exp_013-018`.
 """
 from __future__ import annotations
 
@@ -33,12 +37,12 @@ import numpy as np
 import torch
 from nnsight import VisionLanguageModel
 
-from pipeline.mappa import TopologicalMap, MapEntry
-from cervellone.layer_skipper import AdaptiveLayerSkipper
+from pipeline.topological_map import TopologicalMap, MapEntry
+from skippers.layer_skipper import AdaptiveLayerSkipper
 
-CERVELLETTO_MODEL_ID = "google/gemma-4-E2B-it"
-CERVELLETTO_PIVOT_LAYER = 9
-CERVELLETTO_DEVICE_MAP = {
+ROUTER_MODEL_ID = "google/gemma-4-E2B-it"
+ROUTER_PIVOT_LAYER = 9
+ROUTER_DEVICE_MAP = {
     "model.vision_tower": "cpu", "model.audio_tower": "cpu",
     "model.embed_vision": "cpu", "model.embed_audio": "cpu",
     "model.language_model": "mps", "lm_head": "mps",
@@ -47,27 +51,27 @@ CERVELLETTO_DEVICE_MAP = {
 
 @dataclass
 class InferenceTrace:
-    """Trace di una singola query attraverso la pipeline AIS."""
+    """Trace of a single query through the AIS pipeline."""
     prompt: str
     embedding_shape: tuple[int, ...]
-    matched_entry: Optional[MapEntry]   # None se la mappa è vuota
-    similarity: float                    # cosine [0..1]; -inf se mappa vuota
+    matched_entry: Optional[MapEntry]   # None if the map is empty
+    similarity: float                   # cosine [0..1]; -inf if map empty
     confidence_threshold: float
-    is_high_path: bool                   # True se HIGH (skip applicato), False FALLBACK
+    is_high_path: bool                  # True if HIGH (skip applied), False FALLBACK
     skipped_layers: list[int]
-    logits_last: torch.Tensor            # [vocab] float32 CPU
+    logits_last: torch.Tensor           # [vocab] float32 CPU
 
 
-class _CervellettoEncoder:
-    """Wrapper minimale che usa Gemma 4 E2B per produrre l'embedding query."""
+class _RouterEncoder:
+    """Minimal wrapper that uses Gemma 4 E2B to produce the query embedding."""
 
-    def __init__(self, model_id: str = CERVELLETTO_MODEL_ID,
+    def __init__(self, model_id: str = ROUTER_MODEL_ID,
                  device_map: dict | None = None):
-        device_map = device_map or CERVELLETTO_DEVICE_MAP
+        device_map = device_map or ROUTER_DEVICE_MAP
         self.model = VisionLanguageModel(model_id, dtype=torch.bfloat16,
                                           device_map=device_map)
         self.processor = self.model.processor
-        self.pivot = CERVELLETTO_PIVOT_LAYER
+        self.pivot = ROUTER_PIVOT_LAYER
 
     def _chatify(self, text: str) -> str:
         msgs = [{"role": "user", "content": [{"type": "text", "text": text}]}]
@@ -87,18 +91,17 @@ class _CervellettoEncoder:
 
 
 def _select_skip_from_importance(li: np.ndarray, threshold: float = 0.10) -> list[int]:
-    """Da `layer_importance[n_layers]`, ritorna i layer con importance < threshold.
-    Default 0.10 = skip solo layer "very low importance" (più conservativo del
-    k_skip=1 di exp_006). In Fase 2 close `general_qa` ha mostrato che 17% skip
-    è già marginale: 10% threshold tende a selezionare ~7-14 layer, ma per
-    `general_qa` la maggior parte sono in g5 con norm 0.0 e g3 con norm 0.08."""
+    """Given `layer_importance[n_layers]`, return the indices of layers with
+    importance < threshold. Default 0.10 is conservative — it picks the
+    universally low-importance layers, leaving anything ambiguous in-place."""
     return [i for i, v in enumerate(li) if v < threshold]
 
 
 class AISInferencePipeline:
-    """Pipeline AIS minima end-to-end. Carica solo cervellone (E4B) di default;
-    il cervelletto (E2B) è caricato on-demand per embedding query — costoso ma
-    realistico su 16GB unified memory dove i due non coabitano.
+    """End-to-end AIS pipeline (Gemma 4 research path). Loads only the decoder
+    (E4B) eagerly; the router (E2B) is created on demand for embedding queries
+    — expensive, but realistic on 16GB unified memory where the two don't
+    coexist comfortably.
     """
 
     def __init__(
@@ -106,32 +109,32 @@ class AISInferencePipeline:
         map_dir: Path | str,
         confidence_threshold: float = 0.999,
         skip_importance_threshold: float = 0.10,
-        load_cervellone: bool = True,
+        load_decoder: bool = True,
     ):
         self.map = TopologicalMap.load(map_dir)
         self.confidence_threshold = confidence_threshold
         self.skip_importance_threshold = skip_importance_threshold
-        self.cervellone: Optional[AdaptiveLayerSkipper] = (
-            AdaptiveLayerSkipper() if load_cervellone else None
+        self.decoder: Optional[AdaptiveLayerSkipper] = (
+            AdaptiveLayerSkipper() if load_decoder else None
         )
-        self.encoder: Optional[_CervellettoEncoder] = None  # lazy
+        self.encoder: Optional[_RouterEncoder] = None  # lazy
 
-    def _ensure_encoder(self) -> _CervellettoEncoder:
+    def _ensure_encoder(self) -> _RouterEncoder:
         if self.encoder is None:
-            self.encoder = _CervellettoEncoder()
+            self.encoder = _RouterEncoder()
         return self.encoder
 
-    def _ensure_cervellone(self) -> AdaptiveLayerSkipper:
-        if self.cervellone is None:
-            self.cervellone = AdaptiveLayerSkipper()
-        return self.cervellone
+    def _ensure_decoder(self) -> AdaptiveLayerSkipper:
+        if self.decoder is None:
+            self.decoder = AdaptiveLayerSkipper()
+        return self.decoder
 
     def infer_from_embedding(
         self, prompt: str, embedding: np.ndarray
     ) -> InferenceTrace:
-        """Variante per smoke/test: prende embedding pre-calcolato (es. dal
-        corpus NPZ di Fase 1) invece di chiamare il cervelletto live. Evita
-        di tenere E2B + E4B in memoria contemporanea (>16 GB unified)."""
+        """Variant for smoke/test: takes a precomputed embedding (e.g. from
+        the Phase 1 corpus NPZ) instead of calling the router live. Avoids
+        keeping E2B + E4B in memory at the same time (> 16GB unified)."""
         emb = embedding
         top = self.map.lookup(emb, k=1)
         return self._policy_and_forward(prompt, emb, top)
@@ -154,12 +157,12 @@ class AISInferencePipeline:
             )
         else:
             skip_layers = []
-        cervellone = self._ensure_cervellone()
+        decoder = self._ensure_decoder()
         if skip_layers:
-            active = set(range(cervellone.n_layers)) - set(skip_layers)
-            r = cervellone.forward(prompt, active_layers=active)
+            active = set(range(decoder.n_layers)) - set(skip_layers)
+            r = decoder.forward(prompt, active_layers=active)
         else:
-            r = cervellone.forward(prompt, active_layers=None)
+            r = decoder.forward(prompt, active_layers=None)
         return InferenceTrace(
             prompt=prompt,
             embedding_shape=tuple(emb.shape),
@@ -172,10 +175,9 @@ class AISInferencePipeline:
         )
 
     def infer(self, prompt: str) -> InferenceTrace:
-        """Full pipeline: cervelletto.embed → map.lookup → policy → cervellone.
-        NB: tiene cervelletto + cervellone in memoria contemporanea — su
-        Mac mini 16 GB rischia OOM (vedi `pipeline.py` docstring). Preferire
-        `infer_from_embedding` per smoke/test."""
+        """Full pipeline: router.embed → map.lookup → policy → decoder.
+        Keeps router + decoder in memory at the same time — on Mac mini 16GB
+        this can OOM. Prefer `infer_from_embedding` for smoke/test."""
         encoder = self._ensure_encoder()
         emb = encoder.embed(prompt)
         top = self.map.lookup(emb, k=1)

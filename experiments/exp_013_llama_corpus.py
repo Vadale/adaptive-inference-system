@@ -1,4 +1,4 @@
-"""exp_013 — corpus embeddings on Llama 3.2 3B (cervelletto for AIS-Llama).
+"""exp_013 — corpus embeddings on Llama 3.2 3B (router for AIS-Llama).
 
 Mirrors exp_002 (Gemma corpus) but uses LlamaSkipper.embed() which runs a full
 forward with output_hidden_states=True and extracts hidden state at mid-layer.
@@ -36,7 +36,7 @@ from sklearn.neighbors import NearestNeighbors
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.llama_skipper import LlamaSkipper
+from skippers.llama_skipper import LlamaSkipper
 
 DATASET_ID = "databricks/databricks-dolly-15k"
 CORPUS_DIR = ROOT / "corpus"

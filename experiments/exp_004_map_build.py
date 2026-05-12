@@ -10,22 +10,22 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline.mappa import TopologicalMap, MapEntry
+from pipeline.topological_map import TopologicalMap, MapEntry
 
 CORPUS_NPZ = ROOT / "corpus" / "activations_gemma_e2b_n5000_L9_last.npz"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n-cervellone-layers", type=int, default=42,
+    ap.add_argument("--n-decoder-layers", type=int, default=42,
                     help="42 per E4B, 35 per E2B")
     ap.add_argument("--map-dir", type=str, default=None,
                     help="default: mappa/topology (E4B) o mappa/topology_e2b")
     args = ap.parse_args()
-    N_CERVELLONE_LAYERS = args.n_cervellone_layers
+    N_DECODER_LAYERS = args.n_decoder_layers
     if args.map_dir:
         MAP_DIR = Path(args.map_dir)
-    elif N_CERVELLONE_LAYERS == 35:
+    elif N_DECODER_LAYERS == 35:
         MAP_DIR = ROOT / "mappa" / "topology_e2b"
     else:
         MAP_DIR = ROOT / "mappa" / "topology"
@@ -40,7 +40,7 @@ def main() -> int:
     print(f"\nBuilding TopologicalMap...")
     m = TopologicalMap(
         hidden_dim=embeddings.shape[1],
-        n_cervellone_layers=N_CERVELLONE_LAYERS,
+        n_decoder_layers=N_DECODER_LAYERS,
     )
     entries = [MapEntry(domain=str(c)) for c in categories]
     m.add_batch(embeddings, entries)
@@ -58,7 +58,7 @@ def main() -> int:
     m2 = TopologicalMap.load(MAP_DIR)
     assert len(m2) == len(m), "n_entries mismatch dopo load"
     assert m2.hidden_dim == m.hidden_dim
-    assert m2.n_cervellone_layers == m.n_cervellone_layers
+    assert m2.n_decoder_layers == m.n_decoder_layers
 
     # Query 1: embedding noto (#0) → deve trovare se stesso top-1 con sim ≈ 1.0
     q0 = embeddings[0]

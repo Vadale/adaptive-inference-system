@@ -1,14 +1,14 @@
 """exp_005 — bootstrap `layer_importance` via GROUP ablation per categoria.
 
 Per ogni categoria, prendiamo K prompt rappresentativi dolly-15k e misuriamo
-quanto ciascun GRUPPO di layer del cervellone E4B sia critico:
+quanto ciascun GRUPPO di layer del decoder E4B sia critico:
   - baseline: forward con tutti i 42 layer attivi → P_baseline = softmax(logits)
   - per ogni gruppo G di layer contigui: forward con G skippato → P_G
   - importance[G] = mean over prompt di KL(P_baseline || P_G)
 
 Group ablation invece di single-layer riduce il costo 7× (sui 42 layer E4B, 6
 gruppi da 7 layer) e fornisce informazione comunque utile per la mappa AIS
-("quali REGIONI del cervellone sono critiche per categoria X"). Più granulare
+("quali REGIONI del decoder sono critiche per categoria X"). Più granulare
 non vale il compute (60-90 s/forward su E4B con MPS+CPU offload).
 
 Strategia di mapping al layer_importance per layer singolo:
@@ -37,8 +37,8 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
-from pipeline.mappa import TopologicalMap
+from skippers.layer_skipper import AdaptiveLayerSkipper
+from pipeline.topological_map import TopologicalMap
 
 DATASET_ID = "databricks/databricks-dolly-15k"
 RESULTS_DIR = ROOT / "results"
@@ -80,7 +80,7 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--max-chars", type=int, default=300)
     ap.add_argument("--model-id", type=str, default="google/gemma-4-E4B-it",
-                    help="cervellone model (E4B default, E2B per single-MPS deploy)")
+                    help="decoder model (E4B default, E2B per single-MPS deploy)")
     ap.add_argument("--map-dir", type=str, default=None,
                     help="dir mappa; default: topology (E4B) o topology_e2b (E2B)")
     args = ap.parse_args()

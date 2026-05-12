@@ -10,14 +10,14 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline.mappa import TopologicalMap, MapEntry
+from pipeline.topological_map import TopologicalMap, MapEntry
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus-npz", type=str, default=None,
                     help="default: corpus/activations_llama32_3b_n5000_L9_last.npz")
-    ap.add_argument("--n-cervellone-layers", type=int, default=28,
+    ap.add_argument("--n-decoder-layers", type=int, default=28,
                     help="28 per Llama 3.2 3B")
     ap.add_argument("--map-dir", type=str, default=None,
                     help="default: mappa/topology_llama32_3b")
@@ -38,11 +38,11 @@ def main() -> int:
     print(f"  N={len(embeddings)} hidden={embeddings.shape[1]} "
           f"pivot=L{meta['pivot_layer']} pool={meta['pool']}", flush=True)
 
-    print(f"\nBuilding TopologicalMap (n_cervellone_layers={args.n_cervellone_layers})...",
+    print(f"\nBuilding TopologicalMap (n_decoder_layers={args.n_decoder_layers})...",
           flush=True)
     m = TopologicalMap(
         hidden_dim=embeddings.shape[1],
-        n_cervellone_layers=args.n_cervellone_layers,
+        n_decoder_layers=args.n_decoder_layers,
     )
     entries = [MapEntry(domain=str(c)) for c in categories]
     m.add_batch(embeddings, entries)

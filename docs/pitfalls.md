@@ -82,7 +82,7 @@ Lista crescente dei pitfall scoperti empiricamente nel progetto. Ognuno include 
   )
   ```
 - **Conseguenza prestazionale**: una frazione dei layer testuali finisce su CPU → l'inferenza diventa più lenta perché ogni layer step può richiedere data transfer MPS↔CPU. Misurare in `exp_003_*`.
-- **Verificato**: `exp_003a_cervellone_smoke.py` 2026-05-11 — PASS, 42 layer letti, hidden 2560, determinismo bit-exact.
+- **Verificato**: `exp_003a_decoder_smoke.py` 2026-05-11 — PASS, 42 layer letti, hidden 2560, determinismo bit-exact.
 - **Versione**: nnsight 0.7.0, transformers 5.8.0
 - **Scoperta**: 2026-05-11
 
@@ -90,7 +90,7 @@ Lista crescente dei pitfall scoperti empiricamente nel progetto. Ognuno include 
 - **Sintomo**: `nnsight.MissedProviderError: Execution complete but model.model.language_model.layers.N.input.i0 was not provided` durante un trace che assegna `layer.output = layer.input` su molti layer consecutivi. Caso reale: `exp_005` group ablation, skip 7 layer contigui (L28-34) → crash al sesto forward dopo che i primi 5 erano andati a buon fine.
 - **Causa A — catene lunghe**: nnsight 0.7 può non riuscire a risolvere il grafo di dipendenze quando N+ `layer.output = layer.input` consecutivi creano una chain dove l'input di un layer dipende dal layer precedente skippato in modo non sequenziale.
 - **Causa B — sleep/standby MPS (più probabile)**: su Mac mini headless, se il sistema entra in App Nap / sleep tra trace successive (es. monitor scollegato, energy settings default), il driver Metal può perdere stato dei tensor MPS. Al risveglio nnsight non trova i proxy che si aspettava → MissedProvider su un layer dove prima era OK.
-- **Fix A (codice)**: usare **boundary intervention** invece di per-layer skip. Per ogni gruppo contiguo di layer da skippare `[gs, ge)`, 1 solo intervento: `layers[ge-1].output = layers[gs].input`. Stesso effetto matematico (passthrough), 1/N degli interventi, niente catena. Implementato in `cervellone/layer_skipper.py:forward`.
+- **Fix A (codice)**: usare **boundary intervention** invece di per-layer skip. Per ogni gruppo contiguo di layer da skippare `[gs, ge)`, 1 solo intervento: `layers[ge-1].output = layers[gs].input`. Stesso effetto matematico (passthrough), 1/N degli interventi, niente catena. Implementato in `decoder/layer_skipper.py:forward`.
 - **Fix B (sistema)**: per long-running task su Mac mini headless, prefisso `caffeinate -i -m -s` al python command per disabilitare display sleep, idle sleep e system sleep durante l'esecuzione. Sufficiente: `caffeinate -i /path/to/python -u script.py`.
 - **Verificato**: PASS su exp_005 group ablation (8 cat × 3 prompt × 6 gruppi, ~3h) dopo i due fix applicati congiuntamente.
 - **Scoperta**: 2026-05-11
@@ -103,7 +103,7 @@ Lista crescente dei pitfall scoperti empiricamente nel progetto. Ognuno include 
   1. **Soft skip / layer interpolation**: `output = α·layer(input) + (1-α)·input`. Tunabile per categoria.
   2. **Single-layer ablation granulare**: 6× più costoso, ma rivela layer specifici skippabili nascosti dal group average.
   3. **MoE-style partial skip**: skippare solo MLP o solo attention, non il blocco intero.
-  4. **Distillation/finetune del cervelletto come "skip predictor"**: prevedere mask soft a runtime.
+  4. **Distillation/finetune del router come "skip predictor"**: prevedere mask soft a runtime.
 - **Verificato**: `exp_006` (k_skip=2, k_skip=1) entrambi FAIL su strict criterion. PASS soft documentato in diary `2026-05-12_fase2_close.md`.
 - **Scoperta**: 2026-05-12
 
@@ -143,7 +143,7 @@ Lista crescente dei pitfall scoperti empiricamente nel progetto. Ognuno include 
 ### P8 — `atol=1e-4` su MPS bf16
 - **Sintomo**: Prompt Guide AIS §5.2 (Prompt 2.2) prescrive `atol=1e-4` su `verify_fallback_identity`.
 - **Causa**: bf16 ha 7 bit di mantissa, e su MPS potenziali kernel non deterministici. Tuttavia il run smoke test su GPT-2 Small ha mostrato `max_diff == 0.0` esatto su 3 run identici.
-- **Fix**: tenere `atol=1e-4` ma aggiungere un secondo test di **rank equivalence** sui top-5 token (più robusto se in futuro MPS introducesse non-determinismo). Sul cervellone vero (Gemma 4 E4B) riverificare il determinismo prima di fidarsi della soglia.
+- **Fix**: tenere `atol=1e-4` ma aggiungere un secondo test di **rank equivalence** sui top-5 token (più robusto se in futuro MPS introducesse non-determinismo). Sul decoder vero (Gemma 4 E4B) riverificare il determinismo prima di fidarsi della soglia.
 - **Scoperta**: 2026-05-11 (analisi + smoke test)
 
 ## Template per nuovi pitfall

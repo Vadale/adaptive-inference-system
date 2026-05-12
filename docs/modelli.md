@@ -14,7 +14,7 @@ Sul sistema dell'utente:
 | Leggere attivazioni interne, fare hook, fine-tuning | **HuggingFace** (safetensors bf16) — Fasi 0, 1, 2, 3 |
 | Solo vedere cosa il modello produce, benchmark output finale | Ollama OK (Fase 3 validazione) |
 | Confronto qualità/latenza fra setup quantizzati | Ollama |
-| Costruire la mappa topologica | HuggingFace (richiede attivazioni interne) |
+| Costruire la topological map | HuggingFace (richiede attivazioni interne) |
 
 **Regola**: se devi vedere DENTRO il modello → HuggingFace. Se devi vedere COSA produce → Ollama va bene.
 
@@ -52,8 +52,8 @@ I modelli `google/gemma-*` su HuggingFace sono **gated**: richiedono accettazion
 | Fase | Modello | Repo HF | Dimensione bf16 | Stato |
 |---|---|---|---|---|
 | 0 | GPT-2 Small | `gpt2` | 500MB | Scaricato 2026-05-11 |
-| 1 | Cervelletto | `google/gemma-4-E2B-it` | 10.3GB | Scaricato 2026-05-11 |
-| 2 | Cervellone | `google/gemma-4-E4B-it` | 16.0GB | Da scaricare a inizio Fase 2 |
+| 1 | Router | `google/gemma-4-E2B-it` | 10.3GB | Scaricato 2026-05-11 |
+| 2 | Decoder | `google/gemma-4-E4B-it` | 16.0GB | Da scaricare a inizio Fase 2 |
 | 3 | Validazione | `gemma4:e2b`, `:e4b` (Ollama) | già installati | Fase 3 benchmark |
 
 **Correzioni rispetto ai .docx (2026-05-11)**:

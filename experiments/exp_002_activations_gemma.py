@@ -1,4 +1,4 @@
-"""Fase 1 — collezione attivazioni multi-categoria su Gemma 4 E2B cervelletto.
+"""Fase 1 — collezione attivazioni multi-categoria su Gemma 4 E2B router.
 
 Pipeline:
   1) Carico `databricks/databricks-dolly-15k` (15 011 prompt, 8 categorie tagged).

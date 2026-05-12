@@ -24,8 +24,8 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.llama_skipper import LlamaSkipper
-from pipeline.mappa import TopologicalMap
+from skippers.llama_skipper import LlamaSkipper
+from pipeline.topological_map import TopologicalMap
 
 DATASET_ID = "databricks/databricks-dolly-15k"
 RESULTS_DIR = ROOT / "results"
@@ -80,11 +80,11 @@ def main() -> int:
     )
     print(f"Loading TopologicalMap from {map_dir}...", flush=True)
     tmap = TopologicalMap.load(map_dir)
-    groups = _group_starts(tmap.n_cervellone_layers, args.n_groups)
-    print(f"  entries={len(tmap)}  n_layers={tmap.n_cervellone_layers}  groups={groups}",
+    groups = _group_starts(tmap.n_decoder_layers, args.n_groups)
+    print(f"  entries={len(tmap)}  n_layers={tmap.n_decoder_layers}  groups={groups}",
           flush=True)
-    print(f"  k_skip={args.k_skip} → {args.k_skip*7}/{tmap.n_cervellone_layers} layer "
-          f"= {args.k_skip*7/tmap.n_cervellone_layers*100:.1f}%  mode={args.mode}", flush=True)
+    print(f"  k_skip={args.k_skip} → {args.k_skip*7}/{tmap.n_decoder_layers} layer "
+          f"= {args.k_skip*7/tmap.n_decoder_layers*100:.1f}%  mode={args.mode}", flush=True)
 
     cat_to_li: dict[str, np.ndarray] = {}
     for e in tmap.entries:
@@ -114,7 +114,7 @@ def main() -> int:
     print("\nLoading LlamaSkipper...", flush=True)
     skipper = LlamaSkipper()
     n_layers = skipper.n_layers
-    assert n_layers == tmap.n_cervellone_layers
+    assert n_layers == tmap.n_decoder_layers
 
     total = sum(len(v) * 2 for v in held_out.values())
     print(f"\nValidation: {total} forward", flush=True)

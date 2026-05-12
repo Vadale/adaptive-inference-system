@@ -1,4 +1,4 @@
-"""Smoke test Gemma 4 E4B-it (cervellone) via VisionLanguageModel su MPS bf16.
+"""Smoke test Gemma 4 E4B-it (decoder) via VisionLanguageModel su MPS bf16.
 
 E4B è ~16 GB bf16 (8B totali params, 42 layer testuali). Su Mac Mini 16 GB
 unified memory NON sta in MPS con `device_map={...:"mps", ...}` perché il
@@ -115,7 +115,7 @@ def main() -> int:
     print(f"  MPS bf16 bit-exact 3 runs: {ok_determinism}  [{max_diff:.2e}]")
     print(f"  no NaN, hidden={hidden_dim}, all {n_layers} layers: True")
     if ok_distribution and ok_determinism:
-        print("  SMOKE GEMMA E4B (VLM): PASS — cervellone pronto per Fase 2")
+        print("  SMOKE GEMMA E4B (VLM): PASS — decoder pronto per Fase 2")
         rc = 0
     else:
         print("  SMOKE GEMMA E4B (VLM): FAIL — diagnosticare prima di Fase 2")

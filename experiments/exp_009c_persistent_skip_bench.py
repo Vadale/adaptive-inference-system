@@ -24,7 +24,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.native_skip import NativeLayerSkipper
+from skippers.native_skip import NativeLayerSkipper
 
 PROMPT = "The capital of France is"
 N_REPEATS = 5

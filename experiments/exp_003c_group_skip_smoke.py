@@ -6,7 +6,7 @@ Il run di exp_005 v2 era crashato a forward #6 con `MissedProviderError` su
 B (più probabile): standby/sleep MPS con monitor scollegato.
 
 Fix applicati: boundary intervention (1 intervento per gruppo) in
-`cervellone/layer_skipper.py` + esecuzione sotto `caffeinate` + monitor
+`skippers/layer_skipper.py` + esecuzione sotto `caffeinate` + monitor
 riattaccato.
 
 Questo test riproduce esattamente:
@@ -28,7 +28,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
+from skippers.layer_skipper import AdaptiveLayerSkipper
 
 # closed_qa-like prompt
 PROMPT = "Based on the following passage, what year was the model trained?"

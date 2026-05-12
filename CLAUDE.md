@@ -4,7 +4,7 @@ Indice operativo per Claude Code. Letto automaticamente all'inizio di ogni sessi
 
 ## Cos'è AIS in una riga
 
-Infrastruttura di inferenza locale a 3 componenti (Cervelletto router + Mappa Topologica FAISS + Cervellone con layer skipping) che garantisce per costruzione output ≥ baseline. Dettagli in `docs/architecture.md`. Fonte di verità completa nei `.docx` esterni a questo repo (`../*.docx`).
+Infrastruttura di inferenza locale a 3 componenti (Router + Topological Map FAISS + Decoder con layer skipping) che garantisce per costruzione output ≥ baseline. Dettagli in `docs/architecture.md`. Fonte di verità completa nei `.docx` esterni a questo repo (`../*.docx`).
 
 ## Setup essenziale
 
@@ -26,7 +26,7 @@ adaptive-inference-system/
 ├── CLAUDE.md                  ← questo file (indice)
 ├── docs/                      ← documentazione operativa estesa
 ├── .claude/agents/            ← ais-reviewer, ais-tester, ais-docwriter
-├── cervelletto/ cervellone/ mappa/ pipeline/ corpus/
+├── skippers/ pipeline/ corpus/ mappa/
 ├── experiments/               ← exp_NNN_*.py
 ├── tests/                     ← sanity + performance + fallback
 ├── diary/                     ← log YYYY-MM-DD per sessione

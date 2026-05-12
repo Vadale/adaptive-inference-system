@@ -1,10 +1,10 @@
 """exp_003b — HIGH path smoke: verifica che `layer.output = layer.input`
-non rompa la tupla output dei layer Gemma 4 (cervellone E4B).
+non rompa la tupla output dei layer Gemma 4 (decoder E4B).
 
 `exp_003` ha PASSATO `verify_fallback_identity` (PASS 5/5 max|Δ|=0) ma
 testava SOLO il path FALLBACK (`active_layers=None`). Il path HIGH
 (`active_layers != all_layers`) attiva l'intervento `layer.output = layer.input`
-in `cervellone/layer_skipper.py:104`. Il review (2026-05-11) ha segnalato che
+in `skippers/layer_skipper.py:104`. Il review (2026-05-11) ha segnalato che
 se `layer.output` è una tupla `(hidden_states, ...)` e `layer.input` è un
 tensor singolo (o tupla diversa), l'assegnazione può rompere il dispatcher
 dei layer successivi → logits NaN/degeneri silenziosi.
@@ -33,7 +33,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
+from skippers.layer_skipper import AdaptiveLayerSkipper
 
 PROMPT = "What is the capital of France?"
 

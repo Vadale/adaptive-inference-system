@@ -3,9 +3,9 @@
 ## Setup
 | Componente | Valore |
 |---|---|
-| Cervelletto (router) | Gemma 4 E2B-it L09 last-token + chat template |
-| Mappa Topologica | FAISS IndexFlatIP, 5000 entries dolly-15k, layer_importance E2B 35-dim |
-| Cervellone (inferenza) | Gemma 4 E2B-it (35 layer, hidden 1536) |
+| Router (router) | Gemma 4 E2B-it L09 last-token + chat template |
+| Topological Map | FAISS IndexFlatIP, 5000 entries dolly-15k, layer_importance E2B 35-dim |
+| Decoder (inferenza) | Gemma 4 E2B-it (35 layer, hidden 1536) |
 | Strategia skip | Soft α=0.7 boundary intervention via nnsight, oppure native swap (NativeLayerSkipper) |
 | Hardware | Mac mini M4 16 GB unified, macOS 26.3.1, bf16 MPS |
 
@@ -32,7 +32,7 @@
 
 ### Dove AIS pareggia (Δ ~0)
 - **MMLU classic 28.0% = 28.0%**: identico. Top-1 agreement 74% (AIS sceglie diversi top-1 a volte, ma converge sulla stessa A/B/C/D nella maggioranza dei casi).
-- **MMMLU IT −1.0%**: praticamente parità. Notabile che **top-1 agreement è 0%**: su tutti i 100 prompt italiani il top-1 token next di baseline e AIS differiscono. Spiegazione: la mappa è popolata su dolly-15k INGLESE → il routing AIS per prompt italiani sceglie un nearest-neighbor non rappresentativo. Il modello base genera token in italiano (es. "La" o "Per"), AIS skippato genera token in inglese o caratteri diversi. Però quando si limita la scelta ad A/B/C/D, gli answer letter logits restano vicini → accuracy similar.
+- **MMMLU IT −1.0%**: praticamente parità. Notabile che **top-1 agreement è 0%**: su tutti i 100 prompt italiani il top-1 token next di baseline e AIS differiscono. Spiegazione: the map è popolata su dolly-15k INGLESE → il routing AIS per prompt italiani sceglie un nearest-neighbor non rappresentativo. Il modello base genera token in italiano (es. "La" o "Per"), AIS skippato genera token in inglese o caratteri diversi. Però quando si limita la scelta ad A/B/C/D, gli answer letter logits restano vicini → accuracy similar.
 
 ### Dove AIS peggiora (Δ negativo)
 - **ARC Challenge −4.0%**: peggior risultato. ARC ha questioni scientifiche fattuali (es. "Quale legge fisica spiega X?") dove i layer mid del modello sono critici per fact recall. AIS skip 21% dei layer → perde alcune di queste associazioni. Coerente con P14 (skip degrade su task fact-recall intensive).
@@ -54,16 +54,16 @@ Su MMLU Pro (+3%) e HellaSwag (+2%), AIS dà accuracy leggermente superiore al b
 
 ### 3. Capacità emergenti vere
 AIS NON aggiunge nuove capacità del modello — è un wrapper di routing. Quello che emerge è:
-- **Context-aware skip policy**: la mappa codifica "per categoria X, skippa layer Y" — è una forma di routing learned post-hoc.
+- **Context-aware skip policy**: the map codifica "per categoria X, skippa layer Y" — è una forma di routing learned post-hoc.
 - **Adaptive compute budget**: con confidence_threshold tunabile, AIS può scalare tra FALLBACK puro (safety) e HIGH aggressivo (saving), permettendo trade-off runtime.
-- **Multilingual robustness inaspettato**: MMMLU IT performance pareggio nonostante mappa monolingua inglese. Il routing FAISS in spazio embedding cervelletto cattura semantica cross-lingua (Gemma 4 E2B è multilingual nativo).
+- **Multilingual robustness inaspettato**: MMMLU IT performance pareggio nonostante mappa monolingua inglese. Il routing FAISS in spazio embedding router cattura semantica cross-lingua (Gemma 4 E2B è multilingual nativo).
 
 ### 4. Punti notevoli per pubblicazione
 - **Open source-friendly**: pipeline modulare, modello sotto licenza Gemma (use commerciale OK con T&C), dataset dolly-15k Databricks (Apache 2.0)
 - **Riproducibile**: tutto il codice in 4 moduli + 17 experiment. Mappa popolata distribuibile come asset (30 MB).
 - **Hardware target consumer**: dimostrato su Mac mini 16GB, non richiede GPU enterprise
 - **Garanzia teorica**: FALLBACK = baseline bit-identico (verificato con max\|Δ\|=0 esatto)
-- **Generalizable a modelli più grandi**: l'architettura è agnostic; basta ripopolare la mappa per E4B/31B (richiede hardware con sufficient memory)
+- **Generalizable a modelli più grandi**: l'architettura è agnostic; basta ripopolare the map per E4B/31B (richiede hardware con sufficient memory)
 
 ### 5. Caveat metodologici per pubblicazione onesta
 - **N=100 piccolo**: variance ~±5%. Multiple seed + N=500 darebbero claim solidi.

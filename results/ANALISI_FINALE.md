@@ -21,7 +21,7 @@ La letteratura su layer pruning post-training (ShortGPT, Gromov et al. 2024 "The
 
 ### MMMLU IT (Δ=-1.0%, top-1 agree 0.0% ⚠)
 - **Cosa significa**: stessa accuracy aggregato (1 punto in meno = rumore statistico), ma top-1 agreement = ZERO. Tutti i 100 prompt italiani producono next-token DIVERSI tra baseline e AIS.
-- **Spiegazione**: la mappa è popolata su dolly-15k INGLESE → il routing AIS per un prompt italiano sceglie comunque una categoria (open_qa, classification, ecc.) ma il `layer_importance` corrispondente è derivato da prompt inglesi → quando si applica lo skip, l'output diverge fortemente nel next-token.
+- **Spiegazione**: the map è popolata su dolly-15k INGLESE → il routing AIS per un prompt italiano sceglie comunque una categoria (open_qa, classification, ecc.) ma il `layer_importance` corrispondente è derivato da prompt inglesi → quando si applica lo skip, l'output diverge fortemente nel next-token.
 - **Cosa NON significa**: NON è un bug. L'accuracy aggregato resta intatto perché i logits A/B/C/D (filtered da letter_ids) sono ancora ordinati similmente al baseline.
 - **Insight per pubblicazione**: AIS è **cross-lingual robusto** in termini di accuracy aggregato, nonostante mappa monolingua. Il routing potrebbe essere migliorato con mappa multilingua dedicata.
 
@@ -55,9 +55,9 @@ FALLBACK = baseline bit-identico è una garanzia FORTE per uso commerciale. Ness
 ## 5. Sintesi per pubblicazione
 
 ### Contributi principali
-1. **Architettura modulare cervelletto-mappa-cervellone** per inferenza adattiva (non richiede training, è un wrapper post-hoc).
+1. **Architettura modulare router-mappa-decoder** per inferenza adattiva (non richiede training, è un wrapper post-hoc).
 2. **Soft skip via α-interpolation** come tecnica per preservare quality su LLM densamente trained (vs hard skip che degrada).
-3. **Group ablation** + **boundary intervention** come metodo efficiente per popolare la mappa (vs single-layer ablation 6× più costoso).
+3. **Group ablation** + **boundary intervention** come metodo efficiente per popolare the map (vs single-layer ablation 6× più costoso).
 4. **Compute saving misurato** su consumer hardware (Mac mini M4 16GB) con Gemma 4 E2B: ~62% latency reduction, 0-3% accuracy variation su 5 benchmark.
 5. **15 pitfall documentati** per Gemma 4 + nnsight + MPS deployment.
 
@@ -85,7 +85,7 @@ FALLBACK = baseline bit-identico è una garanzia FORTE per uso commerciale. Ness
 ### GitHub (codice + documentazione)
 - **Repository nuovo** `adaptive-inference-system` (org personale o new).
 - **Contenuto**:
-  - `cervellone/`, `pipeline/`, `experiments/`, `scripts/`, `docs/`
+  - `decoder/`, `pipeline/`, `experiments/`, `scripts/`, `docs/`
   - README dettagliato (già scritto: `README.md`)
   - LICENSE: MIT per codice + nota sui modelli Gemma (T&C standard)
   - `.gitignore`: `corpus/*.npz`, `results/*.png`, `mappa/topology_e2b/*.faiss` (asset pesanti → HF Hub)
@@ -96,14 +96,14 @@ FALLBACK = baseline bit-identico è una garanzia FORTE per uso commerciale. Ness
 ### HuggingFace Hub (asset)
 Tre asset separati:
 1. **Modello fine-tuned** se applicabile: per ora AIS non fine-tuna nulla → NON serve.
-2. **Mappa Topologica popolata**: repo `your-username/ais-gemma4-e2b-map`:
+2. **Topological Map popolata**: repo `your-username/ais-gemma4-e2b-map`:
    - `index.faiss` (30 MB)
    - `values.npz` (entries con layer_importance per categoria)
    - `meta.json`
    - README con sample usage
 3. **Dataset di attivazioni**: repo `your-username/ais-gemma4-e2b-activations`:
    - `activations_gemma_e2b_n5000_L9_last.npz` (15 MB)
-   - Documenta come è stato generato (dolly-15k via cervelletto L9)
+   - Documenta come è stato generato (dolly-15k via router L9)
 
 ### Documenti accademici
 1. **arXiv preprint** (~2-3 settimane di scrittura): 6-8 pagine.

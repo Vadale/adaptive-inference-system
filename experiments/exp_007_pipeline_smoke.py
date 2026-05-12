@@ -7,7 +7,7 @@ Test in 3 scenari su 2 prompt (1 dal corpus = match perfetto, 1 random):
   C) confidence_threshold=0.0 → forza HIGH path anche su query random (skip
      basato sull'entry più simile, qualunque sia).
 
-Per evitare di tenere cervelletto (E2B) + cervellone (E4B) in memoria
+Per evitare di tenere router (E2B) + decoder (E4B) in memoria
 contemporanea, uso `infer_from_embedding` con embedding pre-caricati dal
 corpus Fase 1 (NPZ).
 
@@ -51,7 +51,7 @@ def main() -> int:
     t0 = time.time()
     # default threshold 0.999 → solo match quasi-perfetti vanno in HIGH
     pipe = AISInferencePipeline(MAP_DIR, confidence_threshold=0.999)
-    print(f"  Loaded in {time.time()-t0:.1f}s. n_layers cervellone={pipe.cervellone.n_layers}",
+    print(f"  Loaded in {time.time()-t0:.1f}s. n_layers decoder={pipe.decoder.n_layers}",
           flush=True)
 
     # --- A) match perfetto (embedding dal corpus, prompt corrispondente) ---

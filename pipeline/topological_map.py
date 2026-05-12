@@ -1,35 +1,32 @@
-"""TopologicalMap — indice FAISS per il routing del cervelletto verso layer
-del cervellone (vedi `docs/architecture.md`).
+"""TopologicalMap — FAISS index used by the router to look up layer-skip plans
+for the decoder model (see `docs/architecture.md`).
 
-Schema della chiave/valore (versione iniziale, layer_importance da popolare in
-Fase 2 piena):
+Schema (key/value):
 
-  key:   embedding del prompt (cervelletto L9 last-token, hidden=1536, float32)
+  key:   prompt embedding (router pivot-layer last-token, hidden_dim, float32)
   value: MapEntry {
-    domain: str (categoria, es. 'open_qa', 'summarization', ...)
-    layer_importance: np.ndarray[float32, n_cervellone_layers] — quanto ogni
-        layer del cervellone è critico per questa categoria (1=critico, 0=salta).
-        None finché non popolato.
+    domain: str (category, e.g. 'open_qa', 'summarization', ...)
+    layer_importance: np.ndarray[float32, n_decoder_layers] — how critical each
+        decoder layer is for this category (1=critical, 0=safe to skip).
+        None until populated by the ablation step.
     confidence_threshold: float (default 0.75)
     observed_count: int
     avg_quality_score: float
   }
 
-Persistenza:
-  - `<dir>/index.faiss`         — indice FAISS
-  - `<dir>/values.npz`          — array di valori parallelo (lo stesso ordine
-                                   degli ID dell'indice)
-  - `<dir>/meta.json`           — n_layers cervellone, hidden_dim cerveletto,
-                                   dataset/modelli sorgenti, etc.
+Persistence:
+  - `<dir>/index.faiss` — FAISS index
+  - `<dir>/values.npz`  — parallel array of values (same order as index IDs)
+  - `<dir>/meta.json`   — n_decoder_layers, hidden_dim, source dataset/model, ...
 
-Index type: `IndexFlatIP` su embedding L2-normalizzati → inner product ≡
-cosine similarity. Per 5k vettori 1536-dim: ~30 MB in RAM, query <1ms.
-Quando N→100k, migrare a `IndexIVFFlat` (non urgente).
+Index type: `IndexFlatIP` over L2-normalized embeddings → inner product is
+equivalent to cosine similarity. For 5k vectors @ 3072-dim: ~60 MB on disk,
+query <1ms. Migrate to `IndexIVFFlat` if N grows past ~100k.
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict, fields
+from dataclasses import dataclass, asdict, fields
 from pathlib import Path
 from typing import Iterable
 
@@ -40,7 +37,7 @@ import numpy as np
 @dataclass
 class MapEntry:
     domain: str
-    layer_importance: np.ndarray | None = None   # [n_cervellone_layers] float32
+    layer_importance: np.ndarray | None = None   # [n_decoder_layers] float32
     confidence_threshold: float = 0.75
     observed_count: int = 0
     avg_quality_score: float = 0.0
@@ -53,8 +50,8 @@ class MapEntry:
 
     @classmethod
     def from_dict(cls, d: dict) -> "MapEntry":
-        # Resiliente a schema evolution: ignora chiavi extra (legacy),
-        # accetta valori mancanti coi default.
+        # Resilient to schema evolution: ignore unknown keys (legacy),
+        # accept missing values via defaults.
         known = {f.name for f in fields(cls)}
         filtered = {k: v for k, v in d.items() if k in known}
         li = filtered.get("layer_importance")
@@ -65,29 +62,29 @@ class MapEntry:
 
 def _l2_normalize(x: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(x, axis=-1, keepdims=True)
-    # Embedding zero → zero (non x/1e-9 che esploderebbe). Cosine vs zero
-    # è indefinita: il vettore zero non match nessuno (sim≈0 con tutti).
+    # Zero embedding → zero (not x/1e-9, which would explode). Cosine vs zero
+    # is undefined: the zero vector matches no one (sim ~ 0 with everything).
     return np.where(norm > 1e-9, x / np.maximum(norm, 1e-9), 0.0)
 
 
 class TopologicalMap:
-    """FAISS index su embedding cervelletto + entries parallele.
+    """FAISS index over router embeddings + parallel MapEntry list.
 
-    Convenzioni:
-      - embedding salvati internamente come float32 L2-normalized.
+    Conventions:
+      - Embeddings stored internally as float32, L2-normalized.
       - similarity = inner product = cosine in [-1, 1].
     """
 
-    def __init__(self, hidden_dim: int, n_cervellone_layers: int):
+    def __init__(self, hidden_dim: int, n_decoder_layers: int):
         self.hidden_dim = int(hidden_dim)
-        self.n_cervellone_layers = int(n_cervellone_layers)
+        self.n_decoder_layers = int(n_decoder_layers)
         self.index = faiss.IndexFlatIP(self.hidden_dim)
         self.entries: list[MapEntry] = []
 
     def __len__(self) -> int:
         n_idx = self.index.ntotal
         assert n_idx == len(self.entries), (
-            f"invariante rotta: index.ntotal={n_idx} != len(entries)={len(self.entries)}"
+            f"invariant broken: index.ntotal={n_idx} != len(entries)={len(self.entries)}"
         )
         return n_idx
 
@@ -96,7 +93,7 @@ class TopologicalMap:
     ) -> None:
         embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
         assert embeddings.ndim == 2 and embeddings.shape[1] == self.hidden_dim, (
-            f"shape={embeddings.shape}, atteso (N, {self.hidden_dim})"
+            f"shape={embeddings.shape}, expected (N, {self.hidden_dim})"
         )
         emb_norm = _l2_normalize(embeddings)
         new_entries = list(entries)
@@ -109,9 +106,9 @@ class TopologicalMap:
     def lookup(
         self, query: np.ndarray, k: int = 1
     ) -> list[tuple[float, int, MapEntry]]:
-        """Ritorna `k` entries più vicini al query embedding.
-        Output: lista di (similarity_cosine, idx_interno, MapEntry).
-        Similarity in [-1, 1]; 1.0 = match perfetto."""
+        """Return the `k` entries closest to the query embedding.
+        Output: list of (cosine_similarity, internal_idx, MapEntry).
+        Similarity in [-1, 1]; 1.0 = exact match."""
         q = np.atleast_2d(np.ascontiguousarray(query, dtype=np.float32))
         assert q.shape[1] == self.hidden_dim
         q = _l2_normalize(q)
@@ -132,7 +129,7 @@ class TopologicalMap:
                             entries=np.array(entries_dicts, dtype=object))
         meta = {
             "hidden_dim": self.hidden_dim,
-            "n_cervellone_layers": self.n_cervellone_layers,
+            "n_decoder_layers": self.n_decoder_layers,
             "n_entries": len(self.entries),
         }
         (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
@@ -141,8 +138,13 @@ class TopologicalMap:
     def load(cls, in_dir: Path | str) -> "TopologicalMap":
         in_dir = Path(in_dir)
         meta = json.loads((in_dir / "meta.json").read_text())
-        m = cls(hidden_dim=meta["hidden_dim"],
-                n_cervellone_layers=meta["n_cervellone_layers"])
+        # Backward-compat: legacy maps saved with `n_cervellone_layers` key.
+        n_layers = meta.get("n_decoder_layers", meta.get("n_cervellone_layers"))
+        if n_layers is None:
+            raise KeyError(
+                "meta.json missing n_decoder_layers (or legacy n_cervellone_layers)"
+            )
+        m = cls(hidden_dim=meta["hidden_dim"], n_decoder_layers=int(n_layers))
         m.index = faiss.read_index(str(in_dir / "index.faiss"))
         entries_dicts = np.load(in_dir / "values.npz", allow_pickle=True)["entries"]
         m.entries = [MapEntry.from_dict(d) for d in entries_dicts]

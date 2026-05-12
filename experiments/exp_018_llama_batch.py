@@ -25,7 +25,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.llama_skipper import LlamaSkipper
+from skippers.llama_skipper import LlamaSkipper
 
 PROMPTS = [
     "What is the capital of France?",

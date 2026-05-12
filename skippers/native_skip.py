@@ -1,26 +1,33 @@
-"""NativeLayerSkipper — skip layer reale via swap dei moduli PyTorch.
+"""NativeLayerSkipper — real layer skipping via PyTorch module swap.
 
-A differenza di `AdaptiveLayerSkipper` (intervention nnsight, che esegue i
-layer e ne sovrascrive l'output), questo **bypassa l'esecuzione** dei layer
-hard-skippati → vero saving di compute. Necessario per il deploy AIS reale
-(misurare latency saving).
+Unlike `AdaptiveLayerSkipper` (nnsight intervention, which executes the layer
+and overwrites its output), this **bypasses execution** of hard-skipped layers,
+yielding real compute saving. Required for deployment (where latency must
+actually drop, not just appear to drop).
+
+NOTE: Gemma 4 has a shared-KV pattern across layers — naively swapping a
+layer with `nn.Identity` raises `KeyError: 'sliding_attention'`. See P15-P16
+in docs/pitfalls.md. For a clean architecture without this trap, use
+`LlamaSkipper` (Llama 3.x).
 
 API:
-  - `NativeLayerSkipper(base_skipper)` riusa il modello E4B già caricato
-    da un `AdaptiveLayerSkipper`, niente doppio load.
+  - `NativeLayerSkipper(base_skipper)` reuses the E4B model already loaded by
+    an `AdaptiveLayerSkipper`, no double load.
   - `forward(prompt, hard_skip, soft_skip, ...)`:
-      hard_skip: set[int]  → questi layer NON vengono eseguiti (saving).
-      soft_skip: dict[int, float] → questi layer vengono eseguiti, e l'output
-                                     è interpolato con l'input via α.
+      hard_skip: set[int] — these layers are NOT executed (real saving).
+      soft_skip: dict[int, float] — these layers ARE executed, then
+                                    interpolated with the input via α.
 
-Restore garantito tramite try/finally: dopo il forward, `model.language_model.layers`
-è sempre riportato allo stato originale (no side effects su future chiamate).
+Restore is guaranteed via try/finally: after each forward,
+`model.language_model.layers` is reset to its original state (no side
+effects on future calls).
 
-Garanzia FALLBACK: con hard_skip=None e soft_skip=None, il forward è
-identico al baseline HF (P11 caveat: il -it senza chat template degenera,
-ma è coerente con il baseline).
+Fallback guarantee: with hard_skip=None and soft_skip=None, the forward is
+bit-identical to the HF baseline (P11 caveat: the `-it` instruction-tuned
+model without a chat template can degenerate, but consistently with the
+baseline).
 
-Vincoli: P1-P14.
+Constraints: P1-P14 (see docs/pitfalls.md).
 """
 from __future__ import annotations
 

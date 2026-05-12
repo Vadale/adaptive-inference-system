@@ -21,7 +21,7 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cervellone.layer_skipper import AdaptiveLayerSkipper
+from skippers.layer_skipper import AdaptiveLayerSkipper
 
 PROMPTS = [
     "Based on the following passage, what year was the model trained?",
